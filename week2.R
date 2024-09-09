@@ -94,9 +94,9 @@ ggplot(df_movies_rate, aes(x=movie_title,y=rating)) +
 ggplot(df_movies_rate, aes(x=rating)) + 
   geom_histogram(fill = "#ED7014")+
   labs(
-    x = "Rates",
+    x = "Rating",
     y = "Number of Votes",
-    title = paste("Number of Votes per Rates - Histogram")
+    title = paste("Number of Critics per Rates - Histogram")
   )+
   theme_minimal()
 
@@ -112,9 +112,9 @@ ggplot(data = summarydf_movies_rate, aes(x = rating, y = count_rates)) +
   geom_point(size =2)+
   geom_text(aes(label =count_rates ),fontface ="bold",nudge_x = 0.07, nudge_y = 0.1)+
   geom_label(aes(label = rating_desc))+
-  xlab('Rates')+
-  ylab('Number Of Movies')+
-  ggtitle("Number of Movies By Rates") +
+  xlab('Rating')+
+  ylab('Movie Critics')+
+  ggtitle("Ratings") +
   theme_minimal()
 
 
