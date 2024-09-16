@@ -1,0 +1,31 @@
+movie_id,movie_title,film_critic_id,name,comment,rating,rating_desc
+1,Dune: Part Two,4,Chris,imaginary friend,1,Very Poor
+1,Dune: Part Two,2,David,imaginary friend,5,Excellent
+1,Dune: Part Two,1,Juan,imaginary friend,1,Very Poor
+1,Dune: Part Two,3,Michael,imaginary friend,1,Very Poor
+1,Dune: Part Two,5,Sam,imaginary friend,2,Poor
+3,Killers of the Flower Moon,4,Chris,imaginary friend,5,Excellent
+3,Killers of the Flower Moon,2,David,imaginary friend,4,Good
+3,Killers of the Flower Moon,1,Juan,imaginary friend,5,Excellent
+3,Killers of the Flower Moon,3,Michael,imaginary friend,3,Average
+3,Killers of the Flower Moon,5,Sam,imaginary friend,4,Good
+4,Mission: Impossible – Dead Reckoning Part Two,4,Chris,imaginary friend,3,Average
+4,Mission: Impossible – Dead Reckoning Part Two,2,David,imaginary friend,3,Average
+4,Mission: Impossible – Dead Reckoning Part Two,1,Juan,imaginary friend,4,Good
+4,Mission: Impossible – Dead Reckoning Part Two,3,Michael,imaginary friend,2,Poor
+4,Mission: Impossible – Dead Reckoning Part Two,5,Sam,imaginary friend,5,Excellent
+6,Poor Things,4,Chris,imaginary friend,0,NA
+6,Poor Things,2,David,imaginary friend,4,Good
+6,Poor Things,1,Juan,imaginary friend,4,Good
+6,Poor Things,3,Michael,imaginary friend,4,Good
+6,Poor Things,5,Sam,imaginary friend,5,Excellent
+5,The Last Voyage of the Demeter,4,Chris,imaginary friend,0,NA
+5,The Last Voyage of the Demeter,2,David,imaginary friend,5,Excellent
+5,The Last Voyage of the Demeter,1,Juan,imaginary friend,3,Average
+5,The Last Voyage of the Demeter,3,Michael,imaginary friend,5,Excellent
+5,The Last Voyage of the Demeter,5,Sam,imaginary friend,0,NA
+2,The Marvels,4,Chris,imaginary friend,0,NA
+2,The Marvels,2,David,imaginary friend,3,Average
+2,The Marvels,1,Juan,imaginary friend,4,Good
+2,The Marvels,3,Michael,imaginary friend,1,Very Poor
+2,The Marvels,5,Sam,imaginary friend,5,Excellent
