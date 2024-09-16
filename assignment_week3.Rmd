@@ -1,0 +1,169 @@
+---
+title: "assigment_week3"
+author: "Alinzon Simon"
+date: "2024-09-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+```
+
+##  1
+
+Using the 173 majors listed in fivethirtyeight.com’s College Majors dataset [https://fivethirtyeight.com/features/the-economic-guide-to-picking-a-college-major/], provide code that identifies the majors that contain either "DATA" or "STATISTICS"
+
+Response1: str_detect
+
+```{r major_df, message=FALSE, warning=FALSE}
+
+major_df <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/college-majors/majors-list.csv")
+
+spec(major_df)
+
+major_df |>
+  filter( str_detect(Major,"DATA") | str_detect(Major,"STATISTICS") | str_detect(Major_Category,"DATA") | str_detect(Major_Category,"STATISTICS") )
+
+```
+
+
+##  2
+Write code that transforms the data below:
+
+[1] "bell pepper"  "bilberry"     "blackberry"   "blood orange"
+
+[5] "blueberry"    "cantaloupe"   "chili pepper" "cloudberry"  
+
+[9] "elderberry"   "lime"         "lychee"       "mulberry"    
+
+[13] "olive"        "salal berry"
+
+
+Response1: Using Regex , str_squish and str_replace_all
+
+```{r task2, message=FALSE, warning=FALSE}
+
+task2 <-'[1] "bell pepper"  "bilberry"     "blackberry"   "blood orange"
+
+[5] "blueberry"    "cantaloupe"   "chili pepper" "cloudberry"  
+
+[9] "elderberry"   "lime"         "lychee"       "mulberry"    
+
+[13] "olive"        "salal berry"'
+
+#Remove digits, [], additional line, and tab 
+task2_result <- str_replace_all(task2, "\\d+|\\[|\\]|\\n|\\t", "")
+
+#Remove extra whitespace from strings
+task2_result <- str_squish(task2_result)
+
+#Add a - between different elements in the vector
+task2_result <- str_replace_all(task2_result, '" "', "-")
+
+task2_result <- task2_result %>%
+  str_replace_all('"', '') %>%    # Remove all quotes
+  str_split("-", simplify = TRUE) %>%  # Split by dash
+  as.vector()   # Convert to vector
+
+#print the vector
+print(task2_result)
+
+```
+
+##  3
+
+Describe, in words, what these expressions will match:
+
+## 3.1
+(.)\1\1 , this will find the sequence of 3 characters. For example in the text, it replaced III for IV.
+
+```{r 3.1, echo=FALSE}
+
+str_replace_all("This is a version III", "(.)\\1\\1", "IV")
+
+
+```
+
+## 3.2
+"(.)(.)\\2\\1" , this will find a sequence of two characters followed by its inverse, within double quotes. 
+For example in the text, it replaced IXXI for "The Roman numeral IXXI".
+
+```{r 3.2, echo=FALSE}
+
+str_replace_all('"IXXI" is not valid', '"(.)(.)\\2\\1"', "The Roman numeral IXXI")
+
+
+```
+
+## 3.3
+(..)\1 , this will find the sequence of 2 characters followed by same two characters. 
+For example in the text, it replaced XIXI for "The Roman numeral IXXI".
+
+```{r 3.3, echo=FALSE}
+
+str_replace_all('XIXI is not valid', '(..)\\1', "The Roman numeral XIXI")
+
+
+```
+
+
+## 3.4
+"(.).\\1.\\1" , this will find the sequence of 2 characters structure followed by the first character, within double quotes. 
+For example in the text, it replaced XIXIX for "The Roman numeral IXXI".
+
+```{r 3.4, echo=FALSE}
+
+str_replace_all('"XIXIX" is not valid', '"(.).\\1.\\1"', "The Roman numeral XIXIX")
+
+
+
+```
+
+
+## 3.5
+"(.)(.)(.).*\\3\\2\\1" , this will find the sequence of 3 characters structure followed by any content and then the same sequence reversed, within double quotes. 
+For example in the text, it replaced "XIVXIV is not valid same as VIXVIX" for "The Roman numeral IXXI".
+
+```{r 3.5, echo=FALSE}
+
+str_replace_all('"XIVXIV is not valid same as VIXVIX"', '"(.)(.)(.).*\\3\\2\\1"', "String matches Regex")
+
+
+```
+
+# 4
+Construct regular expressions to match words that:
+
+## 4.1
+Start and end with the same character : ^(.)[^\\1]*\\1$
+
+```{r 4.1, echo=FALSE}
+
+str_replace_all('. is not valid the The Roman numeral.', '^(.)[^\\1]*\\1$', "String matches Regex")
+
+
+```
+
+
+## 4.2
+Contain a repeated pair of letters (e.g. "church" contains "ch" repeated twice.): (.{2}).*\\1
+
+```{r 4.2, echo=FALSE}
+
+str_replace_all('XI XI ."', '(.{2}).*\\1', "String matches Regex")
+
+
+```
+
+
+## 4.3
+Contain one letter repeated in at least three places (e.g. "eleven" contains three "e"s.):(.).*\\1.*\\1
+
+```{r 4.3, echo=FALSE}
+
+str_replace_all('XIXIX ', '(.).*\\1.*\\1', "String matches Regex")
+
+
+```
