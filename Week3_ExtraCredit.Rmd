@@ -1,0 +1,151 @@
+---
+title: "Week3_ExtraCredit"
+author: "Alinzon Simon"
+date: "2024-09-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(png)
+library(grid)
+library(kableExtra)
+```
+
+## Loading data from assignment Week2
+
+In order to avoid any issue with the database connector the data got exported into a csv file so we can work with the data independently.
+
+```{r load_data, echo=TRUE}
+df_movies_rate <- read_csv("https://raw.githubusercontent.com/alinsimon/data607/main/DF_MovieRating.csv",show_col_types = FALSE)
+view(df_movies_rate)
+```
+
+## Data format
+In order to start working in the data we will give different format into a new dataframe
+```{r data_format, echo=TRUE, warning=FALSE}
+#Getting available movies
+Movies_name <-  df_movies_rate |>
+                distinct(movie_title)|> 
+                mutate(movie_title = str_replace_all(movie_title, " ", ""))
+
+#Getting Critics
+critics_name <- df_movies_rate |>
+                distinct(name) |>
+                rename(Critic = name )
+
+#create another df for the globalbaseline
+global_baseline <- critics_name
+
+#We will create a function to get the rate provided by the critic
+get_movierate <- function(x,y){
+  return_result <- df_movies_rate |>
+    filter(str_replace_all(movie_title, " ", "") == x , name == y)|>
+    select(rating)
+  ifelse(return_result == 0, NA, return_result)
+}
+
+#we will add the movies as columns
+for( i in 1:nrow(Movies_name)){
+  
+# Create column name 
+newcol_name <- paste(Movies_name[i,])
+var1_value <-  as.character(Movies_name[i,1])
+
+# Add a new column with default values
+global_baseline[[newcol_name]] <- NA
+
+  for (c in 1:nrow(critics_name)) {
+
+    var2_value <-  as.character(critics_name[c,1])
+    global_baseline[c,i+1] <- get_movierate(var1_value,var2_value)
+    
+  }
+
+}
+
+#Now we will add calculate user_avg
+global_baseline[["user_avg"]] <- NA
+
+for (c in 1:nrow(critics_name)) {
+  
+  numeric_values <- as.numeric(global_baseline[c, ])
+  
+  mean_value <- mean(numeric_values, na.rm = TRUE)
+  
+  global_baseline[c,"user_avg"] <- mean_value
+  
+   numeric_values_row <-    as.numeric(global_baseline[c,2:ncol(global_baseline)-1])
+  
+   if(c==1){
+     numeric_values_all <- numeric_values_row
+   } else {
+     numeric_values_all <- c(numeric_values_all,numeric_values_row)
+   }
+  
+}
+
+
+#Now we will add user_avg_less_meanmovie
+ mean_value_general <- mean(numeric_values_all, na.rm = TRUE)
+ global_baseline[["user_avg_less_meanmovie"]] <- NA
+
+for (c in 1:nrow(critics_name)) {
+  global_baseline[c,"user_avg_less_meanmovie"] <- global_baseline[c,"user_avg"] - mean_value_general
+}
+global_baseline
+
+```
+
+## **Visualize Summary**
+```{r Visualize, echo=TRUE, warning=FALSE}
+
+movie_avg <- global_baseline |>
+  summarize(across(.cols = where(is.numeric) & !c("user_avg","user_avg_less_meanmovie"), mean, na.rm = TRUE))
+
+movie_avg_less_mean <- movie_avg |>
+  mutate(across(where(is.numeric), ~ . - mean_value_general))
+
+
+
+```
+
+
+**Global Baseline**
+
+```{r ggglobal_baseline}
+#global_baseline
+
+global_baseline %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  scroll_box(width = "100%", height = "100%")
+
+```
+
+
+**Movie Average**
+
+```{r movie_avg}
+
+movie_avg %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  scroll_box(width = "100%", height = "100%")
+```
+
+
+**Movie Average - mean movie** 
+
+```{r movie_avg_less_mean}
+
+movie_avg_less_mean %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  scroll_box(width = "100%", height = "100%")
+
+```
+
