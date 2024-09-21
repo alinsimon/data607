@@ -1,0 +1,140 @@
+---
+title: "Project1"
+author: "Alinzon Simon"
+date: "2024-09-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(readr)
+```
+
+## Load RawData
+
+```{r load_data, echo=TRUE}
+raw_data <- read_csv("https://raw.githubusercontent.com/alinsimon/data607/refs/heads/main/project1data.txt",show_col_types = FALSE)
+
+#rename the column
+colnames(raw_data)[1] <- "text_value"
+
+raw_data
+
+```
+
+## Analyze Source File
+After analyzing the source file, I realized that each player's information is enclosed between dashes. For any row that starts with a number, I can extract the PairID, name, and Total. For rows that begin with two capital letters, I can obtain the remaining information. Consequently, two DataFrames were created with unique IDs so that they can be joined to generate the report file.
+
+```{r get_id_state, echo=TRUE, warning=FALSE}
+raw_data_All <- raw_data |>
+  filter( row_number()!=1 , row_number()!=2)
+
+Newrow <- 1
+raw_data_ID_Info_PartI <- data.frame(PairID = character(),
+                              PlayerName = character(),
+                              total = character(), 
+                              Round1 = character(), 
+                              Round2 = character(), 
+                              Round3 = character(), 
+                              Round4 = character(), 
+                              Round5 = character(), 
+                              Round6 = character(), 
+                              Round7 = character())
+
+
+raw_data_ID_Info_PartII <- data.frame(PairID = character(),
+                              State = character(),
+                              uscf_id = character(), 
+                              Rtg_Pre = character(), 
+                              Rtg_Post = character(), 
+                              Number = character())
+
+
+for(i in 1:nrow(raw_data_All)){
+  #if the row doesnt have -- 
+  if (!grepl("--", raw_data_All[i, 1])) {
+    #if row starts with id
+      if (grepl("^[0-9]", raw_data_All[i, 1])) {
+           temp  <-  raw_data_All[i, 1]|>
+                                 separate(text_value, 
+                                 into = c('PairID','PlayerName','Total','Round1',
+                                 'Round2','Round3','Round4','Round5','Round6','Round7')
+                                 , sep = "\\|", fill = "right")|>
+                                 mutate(PairID = str_replace_all(PairID, " ", ""))
+           
+           raw_data_ID_Info_PartI<-bind_rows(raw_data_ID_Info_PartI,temp )
+           PairID <- temp[1,'PairID'] # I will keep the ID so I can use it for the next row
+           
+      }else if (grepl("^[A-Z].{2}", raw_data_All[i, 1])){
+          
+           temp1  <-  raw_data_All[i, 1]|>
+                                 separate(text_value, 
+                                 into = c('State','uscf_id','Rtg_Pre','Rtg_Post',
+                                 'Number')
+                                 , sep = "[|]|[/]|[>]", fill = "right")|>
+                                 mutate(across(everything(), str_trim)) |>
+                                 mutate(Rtg_Pre = str_replace_all(Rtg_Pre, "[R: ]|[-]", ""))|>
+                                 mutate(Number = str_replace_all(Number, "N:", ""))
+           temp1[['PairID']] <- NA
+           temp1[1,"PairID"] <- PairID
+           
+           raw_data_ID_Info_PartII<-bind_rows(raw_data_ID_Info_PartII,temp1 )
+        }
+  }
+  
+}
+```
+
+## Merge both DataFrames
+In this part, I will combine the two previous DataFrames based on the PairID key. Additionally, I will convert the Round columns to numeric format to calculate the averages for the other players.
+
+```{r mergedf, echo=TRUE}
+#converting to Numeric
+DF_Player <- inner_join(raw_data_ID_Info_PartI, raw_data_ID_Info_PartII, by = "PairID")|>
+                                 mutate(across(everything(), str_trim))|>
+                                  mutate(across(starts_with("Round"), 
+                                  ~ str_replace_all(., " ", "")))|>
+              mutate(across(starts_with("Round"), 
+              ~ str_replace_all(., "[A-Z]", "")))|>
+              mutate(across(starts_with("Round"), as.numeric))|>
+              mutate(PairID = as.numeric(as.character(raw_data_ID_Info_PartI$PairID)))
+
+
+DF_Player[['AveragePreChessRating']] <- NA
+
+for(i in 1:nrow(DF_Player)){
+  
+  Previous_players <- DF_Player|>
+  filter(  PairID == DF_Player[i, "Round1"] | PairID == DF_Player[i,"Round2"] |
+           PairID == DF_Player[i,"Round3"] | PairID == DF_Player[i,"Round4"] |
+           PairID == DF_Player[i,"Round5"] | PairID == DF_Player[i,"Round6"] |
+           PairID == DF_Player[i,"Round7"] )|>
+  select(Rtg_Pre)|>
+  mutate(Rtg_Pre = as.numeric(str_remove(Rtg_Pre, "P.*")))
+  
+  if(nrow(Previous_players)>0){
+    DF_Player[i,"AveragePreChessRating"] <-  mean(Previous_players[,"Rtg_Pre"],
+                                                  na.rm = TRUE)|>
+                                                  round()
+  }
+}
+
+```
+
+## Export result into a csv file
+
+```{r closeconnection, echo=TRUE}
+#Export into csv file
+
+DF_Player_Export <- DF_Player|>
+  select(PlayerName,State,Total,Rtg_Pre,AveragePreChessRating)
+
+DF_Player_Export
+
+write_csv(DF_Player_Export, "data/DF_Player.csv")
+
+```
