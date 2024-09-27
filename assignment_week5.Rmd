@@ -1,0 +1,141 @@
+---
+title: "Assignment Week5"
+author: "Alinzon Simon"
+date: "2024-09-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(tidyr)
+library(dplyr)
+library(kableExtra)
+library(DT) #The DT package interactive tables that support sorting, searching, and pagination
+library(plotly) #interactive plots 
+```
+
+## 1)Loading data
+
+In this assignment, the data was loaded from a CSV file. A column name was added for the first and second column in the data frame obtained from the CSV. 
+Additionally, any missing values in the carrier column were populated with the previous record.
+
+```{r load_data, echo=FALSE, warning=FALSE}
+df_flights <- read_csv("https://raw.githubusercontent.com/alinsimon/data607/refs/heads/main/assigment5.csv",show_col_types = FALSE)
+  
+
+#I will rename the first columns
+colnames(df_flights)[c(1,2)] <- c("carrier_name","flight_status")
+
+#Before transformation the data source I will analyze the structure
+#str(df_flights)
+
+#Fill Down missing values for carrier_name
+df_flights <- df_flights |>
+  fill(carrier_name, .direction = "down") 
+
+df_flights
+```
+
+
+## 2) Now we will identify the variables and observations
+
+- The first column contains the destination names, and all destinations start with a capital letter. To extract this data, we will use a regular expression ^[A-Z]
+- The corresponding numeric values associated with each destination will be loaded into a separate column named number_of_flights.
+To do the transformation I will use pivot_longer, so I can change the data from wide to long.
+
+
+```{r pivot_longer}
+
+df_flights <- df_flights %>%
+  pivot_longer(
+    #Column names that start with a capital letter will become observations for a new column state
+    cols = colnames(df_flights)[grep("^[A-Z]", colnames(df_flights))], 
+    names_to = "destination",
+    values_to = "number_of_flights",
+    values_drop_na = TRUE
+  )
+
+#to use this function you need to install DT 
+
+datatable(df_flights)
+
+```
+
+### 3) Perform analysis to compare the arrival delays for the two airlines.
+A statistical summary was created to analyze the data. The carrier with the highest average number of delayed flights is AMMEST, while the carrier with the most on-time flights is AMMWEST. Additionally, AMWEST has a greater total number of flights compared to Alaska.
+
+```{r statistical-summary}
+
+summary_table <- df_flights |>
+  group_by(carrier_name, flight_status) |>
+  summarise(
+    Mean = round(mean(number_of_flights), 1),
+    Median = median(number_of_flights),
+    SD = round(sd(number_of_flights), 1),
+    Min = min(number_of_flights),
+    Max = max(number_of_flights),
+    Count = sum(number_of_flights),
+    .groups = "drop"
+  )
+
+# Display the summary table using kable
+summary_table  |>
+  kable(caption = "Statistical Summary of Flights by Carrier and Flight Status")  |>
+  kable_styling(full_width = F, position = "center")
+
+
+```
+
+```{r interactive-boxplot}
+
+
+flights_box_plot <- ggplot(df_flights, aes(x = carrier_name, y = number_of_flights, fill = flight_status)) +
+  geom_boxplot(outlier.shape = 21,  position = position_dodge(width = 0.8)) +
+  facet_wrap(~ flight_status, nrow = 1) +  # Display flight_status in a single row of facets
+   stat_summary(fun = mean, aes(label = round(..y.., 1)), geom = "text", vjust = 0.1,  color = "blue",, size = 3) +
+  stat_summary(fun = mean, geom = "point", shape = 23, size = 2,  fill = "yellow", 
+               position = position_dodge(width = 0.8)) +
+  scale_fill_manual(values = c("on time" = "darkgreen", "delayed" = "red")) +  # The color I will use for the category
+  labs(title = "Number of Flights by Carrier and Flight Status",
+       subtitle = "Comparison between On Time and Delayed Flights",
+       x = "Carrier Name",
+       y = "Number of Flights") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "top", 
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Convert ggplot to an interactive plotly plot
+interactive_flights_box_plot <- ggplotly(flights_box_plot)
+
+# Display the interactive scatter plot
+interactive_flights_box_plot
+
+
+
+```
+
+```{r interactive-plot}
+
+flights_scatter_plot <- ggplot(df_flights, aes(x = carrier_name, y = number_of_flights, color = flight_status)) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_color_manual(values = c("on time" = "darkgreen", "delayed" = "red")) +  # Use scale_color_manual
+  labs(title = "Scatter Plot of Number of Flights by Carrier and Flight Status",
+       x = "Carrier Name",
+       y = "Number of Flights") +
+  theme_minimal()
+
+
+# Convert ggplot to an interactive plotly plot
+interactive_flights_scatter_plot <- ggplotly(flights_scatter_plot)
+
+# Display the interactive scatter plot
+interactive_flights_scatter_plot
+
+```
+
