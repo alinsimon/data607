@@ -1,0 +1,250 @@
+---
+title: "Project2"
+author: "Alinzon Simon"
+date: "2024-10-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(kableExtra)
+library(DT) #The DT package interactive tables that support sorting, searching, and pagination
+library(plotly) #interactive plots 
+library(scales)
+```
+
+## DataSet I : Employee Salaries 2023
+
+Employee_Salaries_-_2023.csv, this dataset was provided by Crystal Quezada.
+The data was filtered based on the 'Department of Police,' and I would like to compare the salaries based on gender. To better display the data, I will create a subcategory for salary ranges:
+
+* Low: 0 - 30,000\n
+* Medium: 30,001 - 60,000\n
+* High: 60,001 - 100,000\n
+* Very High: 100,001 and above.
+
+
+```{r load_data, echo=TRUE}
+
+employee_salaries <- read_csv("https://raw.githubusercontent.com/alinsimon/data607/refs/heads/main/Employee_Salaries_-_2023.csv",show_col_types = FALSE)
+
+employee_salaries_dep_pol <- employee_salaries |>
+  filter(Department_Name == "Department of Police") |>
+  select(Division, Gender, Base_Salary) |>
+  mutate(Gender = if_else(Gender == "F", "Female", 
+                          if_else(Gender == "M", "Male", "Unknown")),
+         Salary_Range = cut(Base_Salary, 
+                            # Define salary ranges
+                            breaks = c(0, 30000, 60000, 100000, Inf),  
+                            labels = c("Low", "Medium", "High", "Very High"),  
+                            # Range labels
+                            right = FALSE))  # Left-closed intervals
+
+datatable(employee_salaries_dep_pol)
+
+```
+```{r summary-salaries, echo=TRUE}
+
+
+summary_table <- employee_salaries_dep_pol |>
+  group_by(Gender, Salary_Range) |>
+  summarise(
+    mean_salary = round(mean(Base_Salary), 2),
+    median_salary = median(Base_Salary),
+    sd_salary = round(sd(Base_Salary), 2),
+    min_salary = min(Base_Salary),
+    max_salary = max(Base_Salary),
+    n = n(),
+    upper = mean_salary + sd_salary,
+    lower = mean_salary - sd_salary
+  )
+
+# Display the summary table using kable
+summary_table  |>
+  kable(caption = "Statistical Summary of Salaries in the Department of Police ")  |>
+  kable_styling(full_width = F, position = "center")
+
+
+```
+
+
+In conclusion, the bar plot shows that, on average, females earn higher salaries in the range of $0 to $30,000, while males earn higher salaries in the medium, high, and very high categories.
+
+```{r summary-salaries-plot, echo=TRUE}
+
+ggplot(summary_table, aes(x = Salary_Range, y = mean_salary, fill = Gender)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = dollar(mean_salary)),  # Use dollar format for the labels
+            position = position_dodge(width = 0.9),  # Adjust position to align with bars
+            vjust = -0.5,  # Adjust vertical position of the text
+            size = 3) +  # Text size
+  labs(title = "Average Salary by Gender",
+       x = "Salary Range",
+       y = "Salary $") +
+  theme_minimal()+
+  scale_y_continuous(labels = dollar_format()) # we had to add library scales
+```
+
+The highest salary by gender for the low-income category belongs to females. For the medium-income category, it belongs to males, while for the high-income category, it again belongs to females. However, in the very high-income category, males have a significantly higher salary.
+
+```{r summary-salaries-plot2, echo=TRUE}
+
+ggplot(summary_table, aes(x = Salary_Range, y = max_salary, fill = Gender)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = dollar(max_salary)),  # Use dollar format for the labels
+            position = position_dodge(width = 0.9),  # Adjust position to align with bars
+            vjust = -0.5,  # Adjust vertical position of the text
+            size = 3) +  # Text size
+  labs(title = "The Highest Salary by Gender",
+       x = "Salary Range",
+       y = "Salary $") +
+  theme_minimal()+
+  scale_y_continuous(labels = dollar_format()) # we had to add library scales
+```
+
+## DataSet II : Car Comparisons
+"2024 FE Guide for DOE-release dates before 9-17-2024-no-sales -9-17-2024public.xlsx", this dataset was provided by Benjamin Wolin.
+
+```{r load_data2, echo=TRUE, message=FALSE, warning=FALSE}
+
+cars_df <- read_csv("https://raw.githubusercontent.com/alinsimon/data607/refs/heads/main/2024%20FE%20Guide%20for%20DOE-release%20dates%20before%209-17-2024-no-sales%20-9-17-2024public.csv",show_col_types = FALSE)
+
+#We will fix the column names to remove spaces and make them lower case
+colnames(cars_df) <- tolower(gsub("[ ()#]", "_", colnames(cars_df)))
+colnames(cars_df) <- sub("^__|_$|_-_", "", colnames(cars_df))
+
+
+#Now I will create a new data frame with the rows that I need for the Search
+cars_df_current_year <- cars_df|>
+                        filter(model_year == as.numeric(format(Sys.Date(), "%Y"))) |>
+                        select (model_year, mfr_name, carline, eng_displ, cyl, transmission, city_fe__guide_conventional_fuel, hwy_fe__guide_conventional_fuel)
+
+datatable(cars_df_current_year)
+
+
+  
+```
+
+We will now conduct an analysis based on the City fuel efficiency and the number of cylinders, using the new data frame cars_df_current_year. First, we will generate summary statistics to calculate the average fuel efficiency by the number of cylinders in the city.
+
+```{r City_fuel_efficiency, echo=TRUE}
+
+summary_table <- cars_df_current_year |>
+  group_by(cyl) |>
+  summarise(
+    mean_city_fe= round(mean(city_fe__guide_conventional_fuel), 2),
+    median_city_fe = median(city_fe__guide_conventional_fuel),
+    sd_city_fe = round(sd(city_fe__guide_conventional_fuel), 2),
+    min_city_fe= min(city_fe__guide_conventional_fuel),
+    max_city_fe = max(city_fe__guide_conventional_fuel),
+    total_count = n(),
+    upper = mean_city_fe + sd_city_fe,
+    lower = mean_city_fe- sd_city_fe
+  )
+summary_table  |>
+  kable(caption = "Average City Fuel Efficiency (MPG)")  |>
+  kable_styling(full_width = F, position = "center")
+
+
+
+```
+
+The bar plot shows that cars with fewer cylinders tend to have higher MPG (miles per gallon) in city driving.
+
+```{r City_fuel_efficiency_plot, echo=TRUE}
+
+
+ggplot(summary_table, aes(x = factor(cyl), y = mean_city_fe, fill = factor(cyl))) +
+  geom_bar(stat = "identity", position = "dodge", color ="darkblue") +
+  geom_text(aes(label = paste(mean_city_fe,'MPG')), 
+            position = position_dodge(width = 1), 
+            vjust = 0.5, angle = 90, hjust =1, color="white") +
+  labs(y = "City Fuel Efficiency (MPG)", x = "Number of Cylinders", fill = "Cylinder",title = "Average City Fuel Efficiency (MPG)",
+       subtitle = "Comparison between Number of Cylinders")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12))+
+  scale_fill_brewer(palette = "Blues", direction = -1)
+
+
+
+
+```
+ 
+ We will generate summary statistics to calculate the average fuel efficiency by the number of cylinders on the highway. On average, cars with 3 cylinders provide better fuel efficiency.
+
+```{r hw_fuel_efficiency, echo=TRUE}
+
+summary_table2 <- cars_df_current_year |>
+  group_by(cyl) |>
+  summarise(
+    mean_hwy_fe= round(mean(hwy_fe__guide_conventional_fuel), 2),
+    median_hwy_fe = median(hwy_fe__guide_conventional_fuel),
+    sd_hwy_fe = round(sd(hwy_fe__guide_conventional_fuel), 2),
+    min_hwy_fe= min(hwy_fe__guide_conventional_fuel),
+    max_hwy_fe = max(hwy_fe__guide_conventional_fuel),
+    total_count = n(),
+    upper = mean_hwy_fe + sd_hwy_fe,
+    lower = mean_hwy_fe - sd_hwy_fe
+  )
+summary_table2  |>
+  kable(caption = "Average City Fuel Highway (MPG)")  |>
+  kable_styling(full_width = F, position = "center")
+
+
+
+```
+
+The bar plot shows that cars with fewer cylinders tend to have higher Highway Fuel Efficiency (MPG). This trend is consistent with City Fuel Efficiency as well.
+
+```{r hwy_fuel_efficiency_plot, echo=TRUE}
+
+
+ggplot(summary_table2, aes(x = factor(cyl), y = mean_hwy_fe, fill = factor(cyl))) +
+  geom_bar(stat = "identity", position = "dodge", color ="darkblue") +
+  geom_text(aes(label = paste(mean_hwy_fe,'MPG')), 
+            position = position_dodge(width = 1), 
+            vjust = 0.5, angle = 90, hjust =1, color="white") +
+  labs(y = "Highway Fuel Efficiency (MPG)", x = "Number of Cylinders", fill = "Cylinder",title = "Average Highway Fuel Efficiency (MPG)",
+       subtitle = "Comparison between Number of Cylinders")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12))+
+  scale_fill_brewer(palette = "Blues", direction = -1)
+
+
+
+
+```
+
+A new category is created in order to display a graphic with both summaries.
+```{r combined_summaries}
+#Merging for summary data frame and using one column for the average
+combined_summary <- bind_rows(
+  summary_table |> 
+    select(cyl, mean_city_fe) |> 
+    rename(mean_fe = mean_city_fe) |>
+    mutate(fuel_type = "City"),
+  summary_table2 |>
+    select(cyl, mean_hwy_fe) |>
+    rename(mean_fe = mean_hwy_fe) |>
+    mutate(fuel_type = "Highway")
+)
+
+
+ggplot(combined_summary, aes(x = factor(cyl), y = mean_fe, fill = fuel_type)) +
+  geom_bar(stat = "identity", position = "dodge", color = "darkblue") +
+  geom_text(aes(label = paste(mean_fe, 'MPG')), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, color = "black", size = 2.5) +
+  labs(y = "Fuel Efficiency (MPG)", 
+       x = "Number of Cylinders", 
+       fill = "Fuel Type", 
+       title = "City vs. Highway Fuel Efficiency (MPG)", 
+       subtitle = "Comparison by Number of Cylinders") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
+  scale_fill_brewer(palette = "Blues")
+
+```
+
+## DataSet III : I resubmitted Assigment week 5
