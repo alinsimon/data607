@@ -8,10 +8,6 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(ggplot2)
-library(knitr)
-library(tidyr)
-library(dplyr)
 library(kableExtra)
 library(DT) #The DT package interactive tables that support sorting, searching, and pagination
 library(plotly) #interactive plots 
@@ -22,7 +18,7 @@ library(plotly) #interactive plots
 In this assignment, the data was loaded from a CSV file. A column name was added for the first and second column in the data frame obtained from the CSV. 
 Additionally, any missing values in the carrier column were populated with the previous record.
 
-```{r load_data, echo=FALSE, warning=FALSE}
+```{r load_data, echo=TRUE, warning=FALSE}
 df_flights <- read_csv("https://raw.githubusercontent.com/alinsimon/data607/refs/heads/main/assigment5.csv",show_col_types = FALSE)
   
 
@@ -47,7 +43,7 @@ df_flights
 To do the transformation I will use pivot_longer, so I can change the data from wide to long.
 
 
-```{r pivot_longer}
+```{r pivot_longer, echo=TRUE}
 
 df_flights <- df_flights %>%
   pivot_longer(
@@ -65,9 +61,9 @@ datatable(df_flights)
 ```
 
 ### 3) Perform analysis to compare the arrival delays for the two airlines.
-A statistical summary was created to analyze the data. The carrier with the highest average number of delayed flights is AMMEST, while the carrier with the most on-time flights is AMMWEST. Additionally, AMWEST has a greater total number of flights compared to Alaska.
+A statistical summary was created to analyze the data. The carrier with the highest average number of delayed flights is AMMEST and with the most average on-time flights is AMMWEST. Additionally, AMWEST has a greater total number of flights compared to Alaska.
 
-```{r statistical-summary}
+```{r statistical-summary, echo=TRUE}
 
 summary_table <- df_flights |>
   group_by(carrier_name, flight_status) |>
@@ -77,62 +73,89 @@ summary_table <- df_flights |>
     SD = round(sd(number_of_flights), 1),
     Min = min(number_of_flights),
     Max = max(number_of_flights),
-    Count = sum(number_of_flights),
-    .groups = "drop"
+    Count = sum(number_of_flights)
   )
 
 # Display the summary table using kable
 summary_table  |>
-  kable(caption = "Statistical Summary of Flights by Carrier and Flight Status")  |>
+  kable(caption = "Statistical Summary of Flights by Airline and Flight Status")  |>
   kable_styling(full_width = F, position = "center")
 
 
 ```
+When comparing based on destination and status, we can determine that Alaska has a higher percentage of on-time flights in Los Angeles, Phoenix, San Diego, San Francisco, and Seattle. In contrast, AMWEST has the highest percentage of delayed flights.
 
-```{r interactive-boxplot}
+```{r PercentangeofFlights-Destination, echo=TRUE}
 
+summaryt1 <- df_flights |>
+  group_by(carrier_name, destination, flight_status) |>
+  summarize(total_flights = sum(number_of_flights)) |>
+  mutate(per_occurence = round(total_flights / sum(total_flights) * 100, 2))
 
-flights_box_plot <- ggplot(df_flights, aes(x = carrier_name, y = number_of_flights, fill = flight_status)) +
-  geom_boxplot(outlier.shape = 21,  position = position_dodge(width = 0.8)) +
-  facet_wrap(~ flight_status, nrow = 1) +  # Display flight_status in a single row of facets
-   stat_summary(fun = mean, aes(label = round(..y.., 1)), geom = "text", vjust = 0.1,  color = "blue",, size = 3) +
-  stat_summary(fun = mean, geom = "point", shape = 23, size = 2,  fill = "yellow", 
-               position = position_dodge(width = 0.8)) +
-  scale_fill_manual(values = c("on time" = "darkgreen", "delayed" = "red")) +  # The color I will use for the category
-  labs(title = "Number of Flights by Carrier and Flight Status",
-       subtitle = "Comparison between On Time and Delayed Flights",
-       x = "Carrier Name",
-       y = "Number of Flights") +
-  theme_minimal(base_size = 14) +
-  theme(legend.position = "top", 
-        plot.title = element_text(face = "bold", hjust = 0.5),
-        plot.subtitle = element_text(hjust = 0.5),
-        axis.text.x = element_text(angle = 45, hjust = 1))
+summaryt1  |>
+  kable(caption = "Flights by Carrier and Destination")  |>
+  kable_styling(full_width = F, position = "center")
+
+```
+```{r PercentangeofFlights-Destination2, echo=TRUE, message=FALSE, warning=FALSE}
+
+perc_flight_des_plot <-ggplot(summaryt1, aes(x = destination, y = per_occurence, fill = carrier_name)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = paste(per_occurence,'%')), 
+            position = position_dodge(width = 0.9), 
+            vjust = 0.5, angle = 90, hjust =1, color="#7F7F7F") +  
+  facet_wrap(~ flight_status) +
+  labs(y = "Percentange of Flights", x = "Destination",title = "Flights by Airline and Destination",
+       subtitle = "Comparison between status")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_fill_manual('Airline', values=c('#003863','#007461'))
 
 
 # Convert ggplot to an interactive plotly plot
-interactive_flights_box_plot <- ggplotly(flights_box_plot)
+interactive_flights_geom_bar <- ggplotly(perc_flight_des_plot)
 
 # Display the interactive scatter plot
-interactive_flights_box_plot
+interactive_flights_geom_bar
+
+
+```
+
+Overall, when we calculate the proportion of flights that arrived on time, we can see that AMWEST had the highest percentage at 89.11% .
+
+```{r df_flights-Summary, echo=TRUE}
+
+summaryt2 <- df_flights |>
+  group_by(carrier_name,flight_status) |>
+  summarize(total_flights = sum(number_of_flights)) |>
+  mutate(per_occurence = round(total_flights / sum(total_flights) * 100, 2))
+
+summaryt2  |>
+  kable(caption = "Flights by Carrier and Status")  |>
+  kable_styling(full_width = F, position = "center")
+
 
 
 
 ```
 
-```{r interactive-plot}
 
-flights_scatter_plot <- ggplot(df_flights, aes(x = carrier_name, y = number_of_flights, color = flight_status)) +
-  geom_point(size = 3, alpha = 0.7) +
-  scale_color_manual(values = c("on time" = "darkgreen", "delayed" = "red")) +  # Use scale_color_manual
-  labs(title = "Scatter Plot of Number of Flights by Carrier and Flight Status",
-       x = "Carrier Name",
-       y = "Number of Flights") +
-  theme_minimal()
+```{r interactive-plot, echo=TRUE}
+
+flights_geom_bar <- 
+ggplot(summaryt2, aes(x = flight_status, y = per_occurence, fill = carrier_name)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = paste(per_occurence,'%')), 
+            position = position_dodge(width = 1), 
+            vjust = 0.5, angle = 90, hjust =1, color="#7F7F7F") +
+  labs(y = "Percentange of Flights", x = "Airline", fill = "Carrier",title = "Flights by Status",
+       subtitle = "Comparison between status")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_fill_manual('Airline', values=c('#003863','#007461'))
+
 
 
 # Convert ggplot to an interactive plotly plot
-interactive_flights_scatter_plot <- ggplotly(flights_scatter_plot)
+interactive_flights_scatter_plot <- ggplotly(flights_geom_bar)
 
 # Display the interactive scatter plot
 interactive_flights_scatter_plot
