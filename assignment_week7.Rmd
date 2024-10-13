@@ -1,0 +1,144 @@
+---
+title: "assigment_week7"
+author: "Alinzon Simon"
+date: "2024-10-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#install.packages("rvest")
+#install.packages("xml2")
+#install.packages("jsonlite")
+
+library(tidyverse)
+library(kableExtra)
+library(DT) #The DT package interactive tables that support sorting, searching, and pagination
+library(rvest)
+library(xml2)
+library(jsonlite)
+
+```
+
+
+## Importing HTML
+
+```{r HTML, echo=TRUE}
+
+raw_data_html <- read_html("https://raw.githubusercontent.com/alinsimon/data607/refs/heads/main/book_information.html")
+
+#I used div when I created the html that is why I searching that into the raw_data_html
+bookinfo_divs <- raw_data_html |>
+                 html_nodes("div")
+
+#Initialize vectors
+book_names <- c()
+authors <- c()
+publishers <- c()
+publish_years <- c()
+themes <- c()
+
+#A loop for earch row in bookinfo_divs to extract book_name,authors
+for (div_node in bookinfo_divs) {
+  
+  title <- div_node |> 
+    html_node("h2") |>
+    html_text(trim = TRUE)
+  
+  #.[1]: the order for the first <p>; html_text: will return only the text
+  author <- div_node %>% html_nodes("p") %>% .[1] %>% html_text(trim = TRUE)
+  
+  year <- div_node %>% html_nodes("p") %>% .[2] %>% html_text(trim = TRUE)
+  
+  publisher <- div_node %>% html_nodes("p") %>% .[3] %>% html_text(trim = TRUE)
+  
+  theme <- div_node %>% html_nodes("p") %>% .[4] %>% html_text(trim = TRUE)
+  
+  
+  # Clean the extracted text by removing labels ( "Author: ")
+  author <- sub("Authors: ", "", author)
+  publisher <- sub("Publisher: ", "", publisher)
+  year <- sub("Year: ", "", year)
+  Theme <- sub("Theme: ", "", theme)
+  
+  # Append the extracted data to vectors
+  book_names <- c(book_names, title)
+  authors <- c(authors, author)
+  publishers <- c(publishers, publisher)
+  publish_years <- c(publish_years, year)
+  themes <- c(themes, Theme)
+}
+
+book_df <- data.frame(
+  book_name = book_names,
+  author = authors,
+  publisher = publishers,
+  year = publish_years,
+  theme = themes
+)
+
+
+datatable(book_df)
+
+
+```
+
+
+## Importing XML
+
+```{r XML, echo=TRUE}
+
+raw_data_xml <- read_xml("https://raw.githubusercontent.com/alinsimon/data607/refs/heads/main/books_information.xml")
+
+# Extract data from the XML
+book_names <- raw_data_xml |>
+  xml_find_all("//book/title") |>
+  xml_text(trim = TRUE)
+
+authors <- raw_data_xml |>
+  xml_find_all("//book/authors") |> 
+  xml_text(trim = TRUE)
+
+publishers <- raw_data_xml |> 
+  xml_find_all("//book/publisher") |> 
+  xml_text(trim = TRUE)
+
+publish_years <- raw_data_xml |>
+  xml_find_all("//book/year") |>
+  xml_text(trim = TRUE)
+
+themes <- raw_data_xml |>
+  xml_find_all("//book/theme") |> 
+  xml_text(trim = TRUE)
+
+
+book_df2 <- data.frame(
+  book_name = book_names,
+  author = authors,
+  publisher = publishers,
+  year = publish_years,
+  theme = themes
+)
+
+
+datatable(book_df2)
+
+
+```
+
+## Importing JSON
+
+```{r JSON, echo=TRUE}
+
+raw_data_json <- fromJSON("https://raw.githubusercontent.com/alinsimon/data607/refs/heads/main/book_information.json")
+
+#Identify structure after the load
+str(raw_data_json)
+
+book_df3 <- as.data.frame(raw_data_json)
+
+datatable(book_df3)
+
+```
+
