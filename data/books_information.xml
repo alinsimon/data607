@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<books>
+    <book>
+        <title>The Time of the Hero</title>
+        <authors>
+            <author>Mario Vargas Llosa</author>
+        </authors>
+        <year>1963</year>
+        <publisher>Faber and Faber</publisher>
+        <theme>Corruption and violence in a Peruvian military academy</theme>
+    </book>
+    <book>
+        <title>Broad and Alien is the World</title>
+        <authors>
+            <author>Ciro Alegría</author>
+        </authors>
+        <year>1941</year>
+        <publisher>E.P. Dutton Co.</publisher>
+        <theme>Indigenous struggles and rural life in the Andes</theme>
+    </book>
+    <book>
+        <title>In Search of an Inca: Identity and Utopia in the Andes</title>
+        <authors>
+            <author>Alberto Flores Galindo</author>
+            <author>Carlos Aguirre</author>
+        </authors>
+        <year>2010</year>
+        <publisher>Cambridge University Press</publisher>
+        <theme>Historical and cultural analysis of the Incan legacy</theme>
+    </book>
+</books>
