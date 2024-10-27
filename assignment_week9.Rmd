@@ -1,0 +1,247 @@
+---
+title: "Assigment 9 - Web APIs"
+author: "Alinzon Simon"
+date: "2024-10-25"
+runtime: shiny
+output: 
+  html_document:
+    code_folding: show
+    theme:
+      preset: "united"
+      base_font:
+        google: Merriweather
+      heading_font:
+        google: Proza Libre
+    css: css/styles.css  
+---
+
+
+## Introduction
+In order to resolve this assignment an account was created in The New York Times developer Network in order to generate an API KEY.
+
+The following packages used:
+
+- **httr2:** Handles the API request and response.
+    
+- **jsonlite:** Parses JSON data.
+    
+- **purrr:** Simplifies list and data frame manipulation (map_dfr).
+    
+- **DT:** Display data frames interactively in R Markdown or Shiny.
+    
+- **dplyr:** Enables flexible data frame manipulation.
+    
+- **ggplot2:** Package for data visualization.
+    
+```{r main-libraries, message=FALSE, warning=FALSE}
+#install.packages("httr2")
+#install.packages("jsonlite")
+#install.packages("purrr")
+
+library(httr2)
+library(jsonlite)
+library(purrr)
+library(DT)
+library(dplyr)
+library(ggplot2)
+```
+
+
+
+### Define the API endpoint
+
+To connect to the API, we use the generated API key. For security reasons, the key will not be exposed in this file. By combining the API URL with the API key, we create the full endpoint needed to access the data.
+
+
+```{r api_endpoint}
+
+ny_kc <- fromJSON("config/ny_kc.json")
+
+api_endpoint <- gsub(" ", "",paste("https://api.nytimes.com/svc/books/v3/lists/current/hardcover-fiction.json?api-key=",
+                                   ny_kc$key_nyt))
+
+```
+
+
+
+### Create a request object
+
+To create the request, I will use previous variable created **api_endpoint**
+
+```{r get-request}
+
+req <- request(api_endpoint)
+req
+
+```
+
+
+
+### Check for a Successful Request
+
+When we receive a status code of 200, it indicates that the connection was successful. Although the request and the parsing of the JSON can be combined into one step, I chose to separate them to facilitate the identification of potential validation that can be added. 
+
+An alternative method to validate the connection is using `req_retry()`, where we can specify the maximum number of attempts.
+
+
+
+```{r validate-request}
+connected <-FALSE
+
+# validate connectivity with a max of tries 
+req |> req_retry(max_tries = 5)
+
+response <- req_perform(req)
+
+if (resp_status(response) == 200) {
+ #Only if we get 200 we will export the data
+  connected <- TRUE
+  
+ #details about the connection 
+  print(paste('The connection is Successful :',
+        response |>
+            resp_status_desc(),
+        ' Code:',
+        response |>
+            resp_status()
+        ))
+}else{
+  print(paste('Failed to retrieve data:',
+        response |>
+            resp_status_desc(),
+        ' Code:',
+        response |>
+            resp_status()
+        ))
+}
+
+
+```
+
+
+
+### Parse the Response as JSON
+
+Once the connection is established, the JSON body can be parsed into a variable. An additional step is to validate the content type.
+
+
+```{r Parse-response, echo=TRUE}
+
+#validate the content type
+content_type <- response |> resp_content_type()
+print(content_type)
+
+if(connected == TRUE){
+  raw_json_data  <- response |> resp_body_json()
+}
+
+
+```
+
+
+
+###  Inspect the JSON Structure
+
+Before starting the conversion of the JSON body, it is advisable to check the structure to understand where the list of objects we want to export is stored.
+
+
+```{r insp_json_struc}
+
+str(raw_json_data)
+
+```
+
+
+
+### Create a Data Frame from JSON Response
+
+After analyzing the structure, we found that **`raw_json_data`** returns a list of lists. To convert it into a data frame, we will use `map_dfr()`.
+
+1. Extract the book list `raw_json_data$results$books`.
+2. Convert the list of books into a data frame.
+3. Display the new data frame.
+
+
+```{r json_to_df}
+# 1. Extract the book list
+obj_list <- raw_json_data$results$books
+
+# 2. Convert the list of books into a data frame
+obj_df <- map_dfr(obj_list, ~as.data.frame(.x, stringsAsFactors = FALSE))
+
+#3. Display the new data frame
+datatable(obj_df,
+          options = list(pageLength = 3,
+          scrollX = TRUE))
+
+```
+
+
+
+### Add Metadata to the Data Frame
+
+Now the metadata will also be exported and added to the previously created `obj_df`, allowing us to include this information as part of the results.
+
+1. Retrieve the fields from `raw_json_data$results`:
+   - `list_name`
+   - `list_name_encoded`
+   - `bestsellers_date`
+   - `published_date`
+   
+2. Extract the values into a vector.
+3. Add new columns to the previously created `obj_df`, placing them at the front.
+4. Display the updated data frame.
+
+    
+```{r md_to_df}
+#  1. Get the fields in results raw_json_data$results
+result_columns <- c("list_name", "list_name_encoded", "bestsellers_date", "published_date")
+
+#  2. Extract the return into a vector
+metadata <- raw_json_data$results[result_columns]
+
+#  3. Add new columns into the previous obj_df created
+obj_df <- obj_df |>
+  mutate(
+    list_name = metadata$list_name,
+    list_name_encoded = metadata$list_name_encoded,
+    bestsellers_date = metadata$bestsellers_date,
+    published_date = metadata$published_date
+  )|>
+  select(list_name, list_name_encoded, bestsellers_date, published_date, everything())
+
+
+#  4. Display the updated data frame
+datatable(obj_df,
+          options = list(pageLength = 3,
+          scrollX = TRUE))
+
+
+```
+
+
+
+### Visualization 
+
+After identifying all the available columns, I decided to focus on weeks_on_list, which indicates the number of weeks each book has been listed on the bestseller list.
+
+This Geo bar chart illustrates the duration that each book has spent on the bestseller list, highlighting that IRON FLAME had the longest duration among the titles.
+
+```{r Visualization}
+
+# Unique columns
+unique_columns <- unique(colnames(obj_df))
+print(unique_columns)
+
+
+ggplot(obj_df, aes(x = reorder(title, -weeks_on_list), y = weeks_on_list)) +
+  geom_bar(stat = "identity", fill = NA, color = "Orange", size = 1) +
+  labs(title = "Weeks on Best Sellers List", x = "Book Title", y = "Weeks on List") +
+  scale_y_continuous(breaks = seq(0, max(obj_df$weeks_on_list), by = 5)) +  #Specifies the breaks on the y-axis
+  theme_minimal() +
+  coord_flip()
+
+
+```
+
+
