@@ -2,7 +2,6 @@
 title: "Assigment 9 - Web APIs"
 author: "Alinzon Simon"
 date: "2024-10-25"
-runtime: shiny
 output: 
   html_document:
     code_folding: show
@@ -227,7 +226,7 @@ After identifying all the available columns, I decided to focus on weeks_on_list
 
 This Geo bar chart illustrates the duration that each book has spent on the bestseller list, highlighting that IRON FLAME had the longest duration among the titles.
 
-```{r Visualization}
+```{r Visualization, message=FALSE, warning=FALSE}
 
 # Unique columns
 unique_columns <- unique(colnames(obj_df))
