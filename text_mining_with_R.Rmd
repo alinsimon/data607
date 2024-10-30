@@ -1,0 +1,436 @@
+---
+title: "Text Mining with R"
+author: "Alinzon Simon"
+date: "2024-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1)The tidy text format
+
+We thus define the tidy text format as being a table with **one-token-per-row**. 
+
+### 1.1) Contrasting tidy text with other data structures
+
+ Structuring text data in this way means that it conforms to tidy data principles and can be manipulated with a set of consistent tools. This is worth contrasting with the ways text is often stored in text mining approaches.
+
+- String: Text can, of course, be stored as strings, i.e., character vectors, within R, and often text data is first read into memory in this form.
+
+- Corpus: These types of objects typically contain raw strings annotated with additional metadata and details.
+
+- Document-term matrix: This is a sparse matrix describing a collection (i.e., a corpus) of documents with one row for each document and one column for each term. The value in the matrix is typically word count or tf-idf (see Chapter 3).
+
+
+### 1.2) The `unnest_tokens` function
+
+ **tokenization** is the process of splitting text into tokens.
+ To do this, we use tidytext’s `unnest_tokens()` function.
+ 
+  - Other columns, such as the line number each word came from, are retained.
+  
+  - Punctuation has been stripped.
+  
+  - By default, unnest_tokens() converts the tokens to lowercase, which makes them easier to compare or combine with other datasets. (Use the to_lower = FALSE argument to turn off this behavior).
+ 
+
+```{r eg12}
+#Character vector
+text <- c("Because I could not stop for Death -",
+          "He kindly stopped for me -",
+          "The Carriage held but just Ourselves -",
+          "and Immortality")
+
+text
+
+#turning this character vector into a tidy dataset 
+ #1. we need to add it into a data frame
+library(dplyr)
+text_df <- tibble(line = 1:4, text = text)
+
+text_df
+#note:this DF containing text isn’t yet compatible with tidy text analysis
+#We need to convert this so that it has one-token-per-document-per-row.
+
+ #2. we need to tokenize (unnest_tokens)
+library(tidytext)
+
+text_df %>%
+  unnest_tokens(word, text)
+
+```
+
+### 1.3) Tidying the works of Jane Austen
+
+The janeaustenr package provides these texts in a one-row-per-line format, where a line in this context is analogous to a literal printed line in a physical book. 
+
+```{r eg13, echo=FALSE}
+#1)
+library(janeaustenr)
+library(dplyr)
+library(stringr)
+
+original_books <- austen_books() %>%
+  group_by(book) %>%
+  mutate(linenumber = row_number(),
+         chapter = cumsum(str_detect(text, 
+                                     regex("^chapter [\\divxlc]",
+                                           ignore_case = TRUE)))) %>%
+  ungroup()
+
+original_books
+
+#2)
+library(tidytext)
+tidy_books <- original_books %>%
+  unnest_tokens(word, text)
+
+tidy_books
+
+#3) remove Stop words
+data(stop_words)
+
+tidy_books <- tidy_books %>%
+  anti_join(stop_words)
+
+#4)We can also use dplyr’s count() to find the most common words in all the books as a whole.
+tidy_books %>%
+  count(word, sort = TRUE) 
+
+#5) we can use the tidy data frame for visualization 
+library(ggplot2)
+
+tidy_books %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 600) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+
+```
+
+### The gutenbergr package
+
+The gutenbergr package provides access to the public domain works from the Project Gutenberg collection. The package includes tools both for downloading books (stripping out the unhelpful header/footer information), and a complete dataset of Project Gutenberg metadata that can be used to find works of interest.
+
+Reference: https://docs.ropensci.org/gutenbergr/
+
+
+### Word frequencies
+
+A common task in **TEXT MINING** is to look at word frequencies, just like we have done above for Jane Austen’s novels, and to compare frequencies across different texts.
+
+
+```{r eg13, echo=FALSE}
+
+#1) these numbers are different books
+
+library(gutenbergr)
+
+#search for book
+gutenberg_works() |>
+  filter(title == "Wuthering Heights")
+
+options(encoding = "UTF-8")
+
+hgwells <- gutenberg_download(c(35, 36, 5230, 159), strip = TRUE)
+
+
+#2)tokenize words and remove stop words ( and the ..etc)
+tidy_hgwells <- hgwells %>%
+  unnest_tokens(word, text) %>%
+  anti_join(stop_words) %>%
+  mutate(word = str_extract(word, "[a-z']+")) #this one is very important to remove the special characters
+
+#3)find the most common words
+tidy_hgwells %>%
+  count(word, sort = TRUE)
+
+#str(tidy_hgwells)
+
+```
+
+```{r eg13_otherbook}
+
+bronte <- gutenberg_download(c(1260, 768, 969, 9182, 767))
+
+tidy_bronte <- bronte %>%
+  unnest_tokens(word, text) %>%
+  anti_join(stop_words)%>%
+  mutate(word = str_extract(word, "[a-z']+")) #this one is very important to remove the special characters
+
+tidy_bronte %>%
+  count(word, sort = TRUE)
+
+```
+
+Now, let’s calculate the frequency for each word for the works of Jane Austen, the Brontë sisters, and H.G. Wells by binding the data frames together. We can use pivot_wider() and pivot_longer() from tidyr to reshape our dataframe so that it is just what we need for plotting and comparing the three sets of novels.
+
+**NOTE:** If you get encoding issues you need to run this `Sys.setlocale("LC_ALL", "en_US.UTF-8")`
+
+```{r merge_both_results}
+
+options(encoding = "UTF-8")
+library(tidyr)
+
+frequency <- bind_rows(mutate(tidy_bronte, author = "Brontë Sisters"),
+                       mutate(tidy_hgwells, author = "H.G. Wells"), 
+                       mutate(tidy_books, author = "Jane Austen")) %>% 
+  mutate(word = str_extract(word, "[a-z']+")) %>%
+  count(author, word) %>%
+  group_by(author) %>%
+  mutate(proportion = n / sum(n)) %>% 
+  select(-n) %>% 
+  pivot_wider(names_from = author, values_from = proportion) %>%
+  pivot_longer(`Brontë Sisters`:`H.G. Wells`,
+               names_to = "author", values_to = "proportion")
+
+frequency
+
+
+```
+
+
+```{r plot}
+
+library(scales)
+
+# expect a warning about rows with missing values being removed
+ggplot(frequency, aes(x = proportion, y = `Jane Austen`, 
+                      color = abs(`Jane Austen` - proportion))) +
+  geom_abline(color = "gray40", lty = 2) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  scale_color_gradient(limits = c(0, 0.001), 
+                       low = "darkslategray4", high = "gray75") +
+  facet_wrap(~author, ncol = 2) +
+  theme(legend.position="none") +
+  labs(y = "Jane Austen", x = NULL)
+
+
+```
+
+```{r cor}
+
+cor.test(data = frequency[frequency$author == "Brontë Sisters",],
+         ~ proportion + `Jane Austen`)
+
+
+cor.test(data = frequency[frequency$author == "H.G. Wells",], 
+         ~ proportion + `Jane Austen`)
+
+```
+
+## 2)Sentiment analysis with tidy data
+
+This chapter shows how to implement sentiment analysis using tidy data principles.
+One way to analyze the sentiment of a text is to consider the text as a combination of its individual words and the sentiment content of the whole text as the sum of the sentiment content of the individual words.
+
+### The `sentiments` datasets
+
+There are a variety of methods and dictionaries that exist for evaluating the opinion or emotion in text. The tidytext package provides access to several sentiment lexicons. Three general-purpose lexicons are
+
+- AFINN from Finn Årup Nielsen, assigns words with a score that runs between -5 and 5, with negative scores indicating negative sentiment and positive scores indicating positive sentiment.
+
+- bing from Bing Liu and collaborators, categorizes words in a binary fashion into positive and negative categories.
+
+- nrc from Saif Mohammad and Peter Turney;categorizes words in a binary fashion (“yes”/“no”) into categories of positive, negative, anger, anticipation, disgust, fear, joy, sadness, surprise, and trust.
+
+The function `get_sentiments()` allows us to **get specific sentiment lexicons** with the appropriate measures for each one.
+
+**Note:** It is important to keep in mind that these methods do not take into account qualifiers before a word, such as in “no good” or “not true”; a lexicon-based method like this is based on unigrams only.
+
+```{r 2.1}
+
+install.packages("textdata")
+
+
+library(dplyr)
+library(tidytext)
+library(textdata)
+
+
+get_sentiments("afinn") # requires textdata
+
+get_sentiments("bing")
+
+get_sentiments("nrc")
+
+#They were constructed via either crowdsourcing (using, for example, Amazon Mechanical Turk)
+```
+
+### Sentiment analysis with inner join
+
+This is another of the great successes of viewing text mining as a tidy data analysis task; much as removing stop words is an antijoin operation, performing sentiment analysis is an inner join operation.
+
+- austen_books is a dataset that contains the complete texts of Jane Austen's novels. 
+
+- `cumsum()`:function in R is used to calculate the cumulative sum of a numeric vector or a column in a dataframe.
+  eg: numbers <- c(2, 5, 3, 8, 4)
+      cumulative_sum <- cumsum(numbers)
+      print(cumulative_sum)
+      
+      Output: [1]  2  7 10 18 22
+      
+- `str_detect()`: returns a logical vector with TRUE for each element of string that matches pattern and FALSE otherwise
+      str_detect(string, pattern, negate = FALSE)
+
+- `regex("^chapter [\\divxlc]",ignore_case = TRUE)`: is used to match lines or strings that start with the word "chapter," followed by a space and then any single Roman numeral character 
+
+
+```{r 2.2 }
+
+library(janeaustenr)
+library(dplyr)
+library(stringr)
+
+#1 take the text of the novel
+#2 convert it to tidy format using unnest_tokens()
+#3 keep track of the line number
+#4 keep track of the chapter
+
+tidy_books <- austen_books() %>%
+  group_by(book) %>%
+  mutate(
+    linenumber = row_number(),
+    chapter = cumsum(str_detect(text, 
+                                regex("^chapter [\\divxlc]", 
+                                      ignore_case = TRUE)))) %>%
+  ungroup() %>%
+  unnest_tokens(word, text)
+
+#note:Notice that we chose the name word for the output column from unnest_tokens(). This is a convenient choice because the sentiment lexicons and stop word datasets have columns named word; performing inner joins and anti-joins is thus easier.
+
+```
+
+we are ready to do the sentiment analysis.
+1) First, let’s use the **NRC lexicon** and **filter()** for the joy words.
+2) let’s filter() the data frame with the text from the books for the words from Emma 
+3) then use inner_join() to perform the sentiment analysis
+
+What are the most common joy words in Emma?
+
+```{r 2.2.1}
+nrc_joy <- get_sentiments("nrc") %>% 
+  filter(sentiment == "joy")
+
+tidy_books %>%
+  filter(book == "Emma") %>%
+  inner_join(nrc_joy) %>%
+  count(word, sort = TRUE)
+
+```
+
+We can also examine 'how sentiment changes throughout each novel'. We can do this with just a **handful of lines that are mostly dplyr functions**. 
+1) First, we find a sentiment score for each word using the Bing lexicon and inner_join().
+2) we count up how many positive and negative words there are in defined sections of each book
+3) We define an index here to keep track of where we are in the narrative; this index (using integer division) counts up sections of 80 lines of text.
+
+Note:"Small sections of text may not have enough words in them to get a good estimate of sentiment" while really large sections can wash out narrative structure.
+
+For these books, using 80 lines works well, but this can vary depending on individual texts, how long the lines were to start with, etc
+
+- index = linenumber %/% 80, the expression is creating an index based on line numbers, essentially dividing them into chunks of 80 lines each.
+    - **linenumber:** Refers to the line number of each line in the text.
+    
+    - **%/%:** This is the integer division operator in R. It divides the linenumber by 80 and returns only the integer                part of the result, effectively creating groups.
+    
+    - **80:** This means that each index represents a segment of 80 lines. 
+        For example:
+          Lines 1 to 80 will all have index = 0.
+          Lines 81 to 160 will have index = 1.
+          Lines 161 to 240 will have index = 2, and so on.
+
+- pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) 
+    - names_from = sentiment: Specifies that the sentiment column values ("positive" or "negative") will become the new       column names in the wide format.
+    
+    - values_from = n: Indicates that the values in the n column (which represents word counts for each sentiment) will        fill the new "positive" and "negative" columns.
+    
+    - values_fill = 0: Ensures that any missing values in the resulting columns are replaced with 0. This is useful            because, in some chunks, there may be only positive or only negative words, so setting missing counts to 0 avoids        NA values.
+
+
+- mutate(sentiment = positive - negative) ,in R is creating a new column called sentiment, which represents the net sentiment score for each row. This score is calculated by subtracting the count of negative words from the count of positive words in each text chunk.
+
+      Purpose of This Calculation
+      This approach gives you a simple measure of the overall sentiment in each chunk:
+      
+      A positive score (where positive > negative) suggests an overall positive sentiment in that section.
+      A negative score (where negative > positive) indicates an overall negative sentiment.
+      A score of zero (where positive = negative) suggests a neutral sentiment for that chunk.
+
+```{r 2.2.2}
+library(tidyr)
+
+jane_austen_sentiment <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(book, index = linenumber %/% 80, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+
+```
+
+Now we can plot these sentiment scores across the plot trajectory of each novel. Notice that we are plotting against the index on the x-axis that keeps track of narrative time in sections of text.
+
+```{r 2.2.2.plot}
+
+library(ggplot2)
+
+ggplot(jane_austen_sentiment, aes(index, sentiment, fill = book)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~book, ncol = 2, scales = "free_x")
+
+```
+
+
+### Comparing the three sentiment dictionaries
+
+Let’s use all three sentiment lexicons and examine how the sentiment changes across the narrative arc of Pride and Prejudice. First, let’s use filter() to choose only the words from the one novel we are interested in.
+
+```{r 23}
+
+pride_prejudice <- tidy_books %>% 
+  filter(book == "Pride & Prejudice")
+
+pride_prejudice
+
+```
+
+**Note:**Remember from above that the AFINN lexicon measures sentiment with a numeric score between -5 and 5, while the other two lexicons categorize words in a binary fashion, either positive or negative. To find a sentiment score in chunks of text throughout the novel, we will need to use a different pattern for the AFINN lexicon than for the other two.
+
+```{r 231}
+
+afinn <- pride_prejudice %>% 
+  inner_join(get_sentiments("afinn")) %>% 
+  group_by(index = linenumber %/% 80) %>% 
+  summarise(sentiment = sum(value)) %>% 
+  mutate(method = "AFINN")
+
+bing_and_nrc <- bind_rows(
+  pride_prejudice %>% 
+    inner_join(get_sentiments("bing")) %>%
+    mutate(method = "Bing et al."),
+  pride_prejudice %>% 
+    inner_join(get_sentiments("nrc") %>% 
+                 filter(sentiment %in% c("positive", 
+                                         "negative"))
+    ) %>%
+    mutate(method = "NRC")) %>%
+  count(method, index = linenumber %/% 80, sentiment) %>%
+  pivot_wider(names_from = sentiment,
+              values_from = n,
+              values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+
+bind_rows(afinn, 
+          bing_and_nrc) %>%
+  ggplot(aes(index, sentiment, fill = method)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~method, ncol = 1, scales = "free_y")
+
+```
+
