@@ -1,0 +1,464 @@
+---
+title: "Assignment 10 - Sentimental Analysis"
+author: "Alinzon Simon"
+date: "2024-10-25"
+output: 
+  html_document:
+    code_folding: show
+    theme:
+      preset: "united"
+      base_font:
+        google: Merriweather
+      heading_font:
+        google: Proza Libre
+    css: css/styles.css  
+---
+
+## Amazon Product Reviews 
+
+I decided to analyze customer reviews for Amazon products. 
+
+The dataset was downloaded from [Kaggle](https://www.kaggle.com/datasets/datafiniti/consumer-reviews-of-amazon-products?resource=download).
+
+### Packages Used
+
+The following packages were used for data manipulation, text mining, and visualization:
+
+- **tidyverse:** for cleaning, reshaping, and transforming data.
+
+- **dplyr:** Provides flexible data frame manipulation functions:
+  - `filter()`, `select()`, `mutate()`, `arrange()`, and `summarize()`
+
+- **stringr:** Enables string (text) manipulation:
+  - `str_detect()`, `str_replace()`, `str_extract()`, and `str_split()`
+
+- **DT:** Generates interactive tables, allowing for easy data exploration.
+
+- **tidytext:** Facilitates text mining in a tidy data format:
+  - `unnest_tokens()`, for tokenizing text into words or other units
+
+- **tidyr:** Used for data reshaping, making it easier to handle wide or nested data:
+  - `gather()`, `spread()`, `pivot_longer()`, and `pivot_wider()`
+
+- **wordcloud:** Creates word clouds, where word size reflects frequency or sentiment scores.
+
+- **ggplot2:** A powerful tool for data visualization, enabling a variety of plots and customization.
+
+- **reshape2:** 
+  - `acast()`:transforms data from "long" to "wide" format, creating matrices or data frames.
+
+
+```{r main-libraries, message=FALSE, warning=FALSE}
+
+#install.packages("stringr")
+#install.packages("wordcloud")
+#install.packages("reshape2")
+
+library(tidyverse)
+library(dplyr)
+library(stringr)
+library(DT)
+library(tidytext)
+library(tidyr)
+library(ggplot2)
+library(wordcloud)
+library(reshape2)
+
+```
+
+### Loading Reviews Dataset
+
+The dataset downloaded from Kaggle has been placed in the `data` folder. I have selected only the columns that may be useful for future analysis.
+
+```{r load-dataset, message=FALSE, warning=FALSE}
+
+amazon_reviews <- read_csv("data/amazon_reviews.csv")
+
+amazon_reviews <- amazon_reviews|>
+  select(product_name = name,
+         categories,
+         reviews.doRecommend,
+         reviews.rating,
+         review_text = reviews.text,
+         reviews.title)
+
+
+datatable(amazon_reviews,
+          options = list(pageLength = 3,
+          scrollX = TRUE))
+
+```
+
+
+
+### Filter Products
+
+I will now retrieve the reviews for the product "All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 16 GB - Includes Special Offers, Magenta" and "Kindle Oasis E-reader with Leather Charging Cover - Merlot, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers", by filtering the dataset based on the product names. Additionally, I will replace periods with underscores in the column names and convert them to lowercase.
+
+
+```{r filter_product}
+
+amazon_reviews_products <- amazon_reviews |>
+  filter(product_name == 'All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 16 GB - Includes Special Offers, Magenta'|
+         product_name == 'Kindle Oasis E-reader with Leather Charging Cover - Merlot, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers,,'   )
+
+#unique(amazon_reviews_products$product_name)
+
+#replace the periods for underscores
+names(amazon_reviews_products) <- gsub("\\.", "_", tolower(names(amazon_reviews_products)))
+  
+
+datatable(amazon_reviews_products,
+          options = list(pageLength = 3,
+          scrollX = TRUE))
+
+
+
+```
+
+
+
+### Tokenazing words in product reviews
+
+Now I will create a tidy frame that will group amazon_reviews_products by product name; including the line number before unnest the review.
+
+ - **group_by(product_name):** Groups the data by the product_name, allowing to perform operations specific to each product.
+ 
+ - **mutate(linenumber = row_number()):** Adds a linenumber column that counts each review within its respective product group.
+ 
+ - **ungroup():** Removes the grouping, so subsequent operations aren't restricted to groups.
+
+ - **unnest_tokens(word, review_text):** Tokenizes the review(review_text) into individual words.
+ 
+
+```{r meta-data}
+
+tidy_amazon_reviews_products <- amazon_reviews_products |>
+  group_by(product_name) |>
+  mutate(
+    linenumber = row_number()  
+  ) |>
+  ungroup() |>
+  unnest_tokens(word, review_text) 
+
+
+datatable(tidy_amazon_reviews_products,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+
+
+```
+
+
+
+### Analyzing Positive Reviews
+
+Get information about number of words that matches a positive sentiment per product review
+
+```{r sentiment_happiness}
+
+nrc_happiness <- get_sentiments("nrc") |>
+  filter(sentiment == "positive")
+  
+tidy_amazon_reviews_prod_pos <- tidy_amazon_reviews_products |>
+  group_by(product_name)|>
+  inner_join(nrc_happiness) |>
+  count(word, sort = TRUE)
+  
+
+datatable(tidy_amazon_reviews_prod_pos,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+
+
+```
+
+Using the previous tidy frame with the positive reviews, I will create a plot to display the differences between the products.
+
+  1)I will first create a static summary frame, excluding any NA values and grouping the results by product.
+
+  2)Since the product names are quite long, I will use str_wrap() to make them more readable.
+
+  3)In the plot, I will display the total number of positive words associated with each product name.
+
+
+```{r positive_words_by_product}
+
+#unique(product_positive_counts$product_name)
+
+product_positive_counts <- tidy_amazon_reviews_prod_pos |>
+  group_by(product_name) |>
+  summarize(positive_word_count = sum(n, na.rm = TRUE)) |>
+  arrange(desc(positive_word_count))|>
+  ungroup()
+
+
+product_positive_counts <- product_positive_counts |>
+  mutate(product_name = str_wrap(product_name, width = 25))
+
+ggplot(product_positive_counts, aes(x = reorder(product_name, positive_word_count), y = positive_word_count)) +
+  geom_col(aes(fill = positive_word_count)) +
+  scale_fill_gradient(low = "#F2CF9B", high = "orange") +
+  labs(title = "Total Number of Positive Words by Product",
+       x = "Product Name",
+       y = "Positive Word Count") +
+  coord_flip() +  
+  theme_minimal()
+
+
+
+```
+
+From the Total Number of Positive Words by Product plot, we can determine that the "All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 16 GB - Includes Special Offers, Magenta" has a significantly larger bar compared to the other products, indicating it contains a higher number of positive words.
+
+
+
+### Join with Bing Sentiments
+
+In this section, I will join the dataset with the Bing sentiment lexicon and count the occurrences of each sentiment for every product name. Additionally, I will reshape the data to a wide format. The main goal is to calculate a new column, **sentiment**, which represents the difference between the positive and negative counts, allowing us to obtain an overall sentiment measure.
+
+
+```{r tidy_amazon_reviews_products_sentiment}
+
+
+tidy_amazon_reviews_products <- tidy_amazon_reviews_products |>
+  mutate(product_name = str_wrap(product_name, width = 25))
+
+tidy_amazon_reviews_products_sentiment <- tidy_amazon_reviews_products %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(product_name, index = linenumber %/% 10, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+
+
+datatable(tidy_amazon_reviews_products_sentiment,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+
+```
+
+Now we will plot these sentiment scores across the plot trajectory for each product. 
+For the aes we will use index and sentiment.
+
+
+```{r tidy_amazon_reviews_products_sentiment-plot}
+
+ggplot(tidy_amazon_reviews_products_sentiment, aes(index, sentiment, fill = product_name)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~product_name, ncol = 2, scales = "free_x")+
+  theme_minimal()
+
+```
+
+To check for any specific patterns, I created an additional plot with a smoothed trend line for better analysis.
+
+```{r plot2, message=FALSE, warning=FALSE}
+
+ggplot(tidy_amazon_reviews_products_sentiment, aes(index, sentiment, color = product_name)) +
+  geom_line(show.legend = FALSE) +
+  geom_smooth(se = FALSE, method = "loess") +
+  facet_wrap(~product_name, ncol = 2, scales = "free_x") +
+  theme_minimal()
+
+```
+
+From the plot results, we observe that for the product 'All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 16 GB - Includes Special Offers, Magenta,' sentiment reaches slightly above 20 initially but gradually decreases as the index increases. In contrast, the product 'Kindle Oasis E-reader with Leather Charging Cover - Merlot, 6" High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers' shows a higher number of positive comments, particularly between index points 4 and 5. We can also determinate from the plot that we got some negative sentiment for the first product.
+
+
+
+### Comparing the different sentiment dictionaries
+
+Now I will analize the first product in details "."All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 16 GB - Includes Special Offers, Magenta" using different sentiments
+
+- **AFINN** : measures sentiment with a numeric score between -5 and 5
+- **bing** : positive or negative
+- **NRC** : positive or negative
+- **senticnet** : positive or negative
+
+
+```{r comparing_3dictionaries, message=FALSE, warning=FALSE}
+
+afinn <- tidy_amazon_reviews_products |>
+  filter(product_name == 'All-New Fire HD 8 Tablet,\n8 HD Display, Wi-Fi, 16\nGB - Includes Special\nOffers, Magenta')|>
+  inner_join(get_sentiments("afinn")) |> 
+  group_by(index = linenumber %/% 80) |> 
+  summarise(sentiment = sum(value)) |> 
+  mutate(method = "AFINN")
+
+bing_and_nrc <- bind_rows(
+  tidy_amazon_reviews_products |>
+  filter(product_name == 'All-New Fire HD 8 Tablet,\n8 HD Display, Wi-Fi, 16\nGB - Includes Special\nOffers, Magenta')|>
+    inner_join(get_sentiments("bing"))|>
+    mutate(method = "Bing et al."),
+  tidy_amazon_reviews_products |>
+  filter(product_name == 'All-New Fire HD 8 Tablet,\n8 HD Display, Wi-Fi, 16\nGB - Includes Special\nOffers, Magenta')|>
+    inner_join(get_sentiments("nrc") |>
+                 filter(sentiment %in% c("positive", 
+                                         "negative"))
+    ) |>
+    mutate(method = "NRC"))|>
+  count(method, index = linenumber %/% 80, sentiment) |>
+  pivot_wider(names_from = sentiment,
+              values_from = n,
+              values_fill = 0) |> 
+  mutate(sentiment = positive - negative)
+
+datatable(afinn,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+
+
+```
+
+```{r comparing_3dictionaries1}
+
+datatable(bing_and_nrc,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+```
+
+
+An additional lexicon I will use is SenticNet, which I downloaded from [SenticNet Downloads](https://sentic.net/downloads/). I will rename the columns to make them easier to work with.
+ 
+
+```{r comparing_3dictionaries2}
+
+# Load SenticNet data
+senticnet_data <- read_csv("data/senticnet.csv")  
+
+#change column name concept to word and polarity_value to sentiment
+names(senticnet_data) <- gsub("\\.| ", "_", tolower(names(senticnet_data))) 
+
+senticnet_data <- senticnet_data|>
+  rename(sentiment =  polarity_value,
+         word = concept)
+
+senticnet <-  tidy_amazon_reviews_products |>
+  filter(product_name == 'All-New Fire HD 8 Tablet,\n8 HD Display, Wi-Fi, 16\nGB - Includes Special\nOffers, Magenta')|>
+    inner_join(senticnet_data |>
+                 filter(sentiment %in% c("positive", 
+                                         "negative"))
+    ) |>
+    mutate(method = "senticnet")|>
+  count(method, index = linenumber %/% 80, sentiment) |>
+  pivot_wider(names_from = sentiment,
+              values_from = n,
+              values_fill = 0) |> 
+  mutate(sentiment = positive - negative)
+
+
+datatable(senticnet,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+```
+
+I will now combine the lexicons and visualize the differences between them. This allows us to compare the structures of the AFINN, BING, NRC and senticnet lexicons, where we can observe that all four display a similar structure in the bar charts.
+
+```{r vizualization}
+
+bind_rows(afinn, 
+          bing_and_nrc,senticnet) %>%
+  ggplot(aes(index, sentiment, fill = method)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~method, ncol = 1, scales = "free_y")+
+  theme_minimal()
+
+
+```
+
+
+
+### Most common positive and negative words
+
+By using count() with both word and sentiment as arguments, we can see how much each word contributes to each sentiment across all products reviews.
+
+```{r most_common_postive}
+
+bing_word_counts <- tidy_amazon_reviews_products |>
+  inner_join(get_sentiments("bing")) |>
+  count(word, sentiment, sort = TRUE) |>
+  ungroup()
+
+bing_word_counts
+
+```
+
+```{r most_common_postive-plot}
+
+bing_word_counts |>
+  group_by(sentiment) |>
+  slice_max(n, n = 20) |> 
+  ungroup() |>
+  mutate(word = reorder(word, n)) |>
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)+
+  theme_minimal()
+
+```
+This plot provides insight into the most commonly used words in positive reviews, such as `great`, `good`, and `easy`. Similarly, in negative reviews, the most frequent words include `cheap`, `expensive`, and `problems`.
+
+
+### Wordclouds
+
+To visualize word frequencies by sentiment, I created a matrix of word counts using a word cloud, where each row represents a word and each column represents a sentiment (positive or negative). I also checked the matrix output to ensure it's structured correctly.
+
+- **Join with Bing sentiment lexicon** by matching each word with its sentiment.
+- **`acast()`**: Convert the data to a matrix format, filling any missing values with 0.
+
+
+```{r Wordclouds1, warning=TRUE}
+
+matrix_data <- bing_word_counts |>
+  inner_join(get_sentiments("bing")) |>
+  count(word, sentiment, sort = TRUE) |>
+  acast(word ~ sentiment, value.var = "n", fill = 0)
+
+```
+
+```{r Wordclouds2, echo=TRUE, message=FALSE, warning=FALSE}
+
+bing_word_counts |>
+  anti_join(stop_words) |>
+  count(word) |>
+  with(wordcloud(word, n, max.words = 1000))
+
+
+```
+
+
+
+```{r Wordclouds3, echo=TRUE, message=FALSE, warning=FALSE}
+
+
+bing_word_counts |>
+  inner_join(get_sentiments("bing")) |>
+  count(word, sentiment, sort = TRUE) |>
+  acast(word ~ sentiment, value.var = "n", fill = 0) |>
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 1000)
+
+
+#bing_word_counts |>
+#  inner_join(get_sentiments("bing")) |>
+#  count(word, sentiment, sort = TRUE) |>
+#  head(10)
+
+```
+
+This code generates a word cloud, where words associated with positive and negative sentiments are visualized side by side, allowing us to see which words are most frequently linked to each sentiment across all reviews.
+
+The analysis of sentiment in product reviews using various sentiment lexicons, such as AFINN, BING, NRC and senticnet, provides valuable insights into consumer perceptions and experiences. 
+By utilizing techniques like word counts and word clouds, we can visually represent the sentiments associated with specific products.
+
+An interesting addition would be to calculate the percentage of positive reviews based on the review scores to determine if this aligns with the results from the sentiment analysis.
+
+

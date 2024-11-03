@@ -1,0 +1,314 @@
+---
+title: "Assigment 9 - Web APIs"
+author: "Alinzon Simon"
+date: "2024-10-25"
+output: 
+  html_document:
+    code_folding: show
+    theme:
+      preset: "united"
+      base_font:
+        google: Merriweather
+      heading_font:
+        google: Proza Libre
+    css: css/styles.css  
+---
+
+
+## Sentimental Analysis
+
+In order to validate the result of the sentimental analysis I decided to get books that some key words are `sadness|melancholy|sorrow` in the subject and also another one with the word `happiness`.
+
+The following packages were used:
+
+- **gutenbergr:** package to export the books.
+
+- **dplyr:** Enables flexible data frame manipulation.
+
+- **stringr:**
+
+- **DT:**
+
+- **tidytext:**
+
+- **tidyr:**
+
+- **wordcloud:**
+
+- **ggplot2:**
+
+```{r main-libraries, message=FALSE, warning=FALSE}
+
+install.packages("gutenbergr")
+install.packages("stringr")
+install.packages("wordcloud")
+
+library(gutenbergr)
+library(dplyr)
+library(stringr)
+library(DT)
+library(tidytext)
+library(tidyr)
+library(ggplot2)
+library(wordcloud)
+
+
+
+
+```
+
+### Identify two books
+
+1) Searching for books with key words as `sadness|melancholy|sorrow`  
+
+  - gutenberg_subjects : dataset that contains books
+  
+  - filter(): Select only the result that matches
+  
+  - str_detect(subject, regex("sadness|melancholy|sorrow", ignore_case = TRUE)) : detects any match with the regex rule; ignoring if it's lower or upper case
+
+```{r search1}
+
+sadness_subjects <- gutenberg_subjects |>
+  filter(str_detect(subject, regex("sadness|melancholy|sorrow", ignore_case = TRUE)))
+
+sadness_book_ids <- unique(sadness_subjects$gutenberg_id)
+
+#additional validation to get only english
+sadness_books_english <- gutenberg_metadata |>
+  filter(gutenberg_id %in% sadness_book_ids, language == "en") |>
+  select(gutenberg_id, title, author)
+
+
+datatable(sadness_books_english,
+          options = list(pageLength = 3,
+          scrollX = TRUE))
+
+
+```
+
+2) Retrieve metadata for these books into a tibble frame
+
+  - sadness_book_ids: int vector created in previous step with the book ids (gutenberg_id)
+  
+  - filter(gutenberg_id %in% sadness_book_ids): this part will select only the books that match with the gutenberg_id in the vector
+  
+  - select(gutenberg_id, title, author): columns that I will export for future use
+
+```{r meta-data}
+
+sadness_books_eng_data <- gutenberg_download(sadness_books_english$gutenberg_id)|>
+  inner_join(sadness_books_english, by ="gutenberg_id")|>
+  inner_join(sadness_subjects, by ="gutenberg_id")|>
+  rename(book = title) 
+
+# book 10800 was not found 
+
+tidy_sadness_books_eng<- sadness_books_eng_data |>
+  group_by(book)|>
+  unnest_tokens(word, text) |>
+  anti_join(stop_words)|>
+  ungroup()|>
+  mutate( linenumber = row_number())
+
+datatable(tidy_sadness_books_eng,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+
+```
+
+Get information about number of words that matches the sadness sentiment
+
+```{r sentiment_sadness}
+
+nrc_sadness <- get_sentiments("nrc") |>
+  #filter(sentiment == "sadness")
+  filter(str_detect(sentiment, regex("sadness|melancholy|sorrow|negative", ignore_case = TRUE)))
+  
+tidy_sadness_books_eng_count <- tidy_sadness_books_eng |>
+  group_by(book)|>
+  inner_join(nrc_sadness) |>
+  count(word, sort = TRUE)
+  
+
+datatable(tidy_sadness_books_eng_count,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+
+
+```
+
+
+I will use `get_sentiments("bing")`
+
+```{r tidy_sadness_books_eng_data}
+
+
+tidy_sadness_books_eng_sentiment <- tidy_sadness_books_eng %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(book, index = linenumber %/% 80, sentiment) %>%
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+
+
+datatable(tidy_sadness_books_eng_sentiment,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+
+```
+
+
+Now we will plot these sentiment scores across the plot trajectory for each book. For the aes we will use index and sentiment.
+
+```{r tidy_sadness_books_eng_sentiment-plot}
+
+# Wrap the book titles in the data frame
+tidy_sadness_books_eng_sentiment <- tidy_sadness_books_eng_sentiment %>%
+  mutate(book = str_wrap(book, width = 25))  # Adjust width as needed
+
+# Plot with wrapped titles
+ggplot(tidy_sadness_books_eng_sentiment, aes(index, sentiment, fill = book)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~book, ncol = 2, scales = "free_x")+
+  theme_minimal()
+
+
+```
+
+### Comparing the three sentiment dictionaries
+
+- AFINN
+- bing
+- NRC
+
+
+```{r comparing_3dictionaries}
+
+afinn <- tidy_sadness_books_eng |> 
+  inner_join(get_sentiments("afinn")) |> 
+  group_by(index = linenumber %/% 80) |> 
+  summarise(sentiment = sum(value)) |> 
+  mutate(method = "AFINN")
+
+bing_and_nrc <- bind_rows(
+  tidy_sadness_books_eng %>% 
+    inner_join(get_sentiments("bing")) %>%
+    mutate(method = "Bing et al."),
+  tidy_sadness_books_eng %>% 
+    inner_join(get_sentiments("nrc") %>% 
+                 filter(sentiment %in% c("positive", 
+                                         "negative"))
+    ) %>%
+    mutate(method = "NRC")) %>%
+  count(method, index = linenumber %/% 80, sentiment) %>%
+  pivot_wider(names_from = sentiment,
+              values_from = n,
+              values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+
+datatable(afinn,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+datatable(bing_and_nrc,
+          options = list(pageLength = 8,
+          scrollX = TRUE))
+
+
+
+```
+
+Now I will bend them together and visualize them 
+
+```{r vizualization}
+
+bind_rows(afinn, 
+          bing_and_nrc) %>%
+  ggplot(aes(index, sentiment, fill = method)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~method, ncol = 1, scales = "free_y")+
+  theme_minimal()
+
+
+```
+
+### Most common positive and negative words
+
+By implementing count() here with arguments of both word and sentiment, we find out how much each word contributed to each sentiment.
+
+```{r most_common_postive}
+
+bing_word_counts <- tidy_sadness_books_eng |>
+  inner_join(get_sentiments("bing")) |>
+  count(word, sentiment, sort = TRUE) |>
+  ungroup()
+
+bing_word_counts
+
+```
+
+```{r most_common_postive-plot}
+
+bing_word_counts |>
+  group_by(sentiment) |>
+  slice_max(n, n = 20) |> 
+  ungroup() |>
+  mutate(word = reorder(word, n)) |>
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)+
+  theme_minimal()
+
+```
+
+### Wordclouds
+
+We will use the tidy frame data into a wordclouds
+
+- acast() should create a matrix where each row is a word, and each column is a sentiment (positive or negative). Check the matrix output to ensure it’s structured correctly.
+
+```{r Wordclouds}
+
+matrix_data <- bing_word_counts |>
+  inner_join(get_sentiments("bing")) |>
+  count(word, sentiment, sort = TRUE) |>
+  acast(word ~ sentiment, value.var = "n", fill = 0)
+
+head(matrix_data)
+
+```
+
+```{r Wordclouds}
+
+bing_word_counts |>
+  anti_join(stop_words) |>
+  count(word) |>
+  with(wordcloud(word, n, max.words = 40))
+
+
+```
+
+```{r  Wordclouds2}
+
+library(reshape2)
+
+bing_word_counts |>
+  inner_join(get_sentiments("bing")) |>
+  count(word, sentiment, sort = TRUE) |>
+  acast(word ~ sentiment, value.var = "n", fill = 0) |>
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+
+
+bing_word_counts |>
+  inner_join(get_sentiments("bing")) |>
+  count(word, sentiment, sort = TRUE) |>
+  head(10)
+
+```
+

@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/1240636/723ecb28601e43d1850ae5e9dead68c3
+bundleId: https://api.rpubs.com/api/v1/document/1240636/723ecb28601e43d1850ae5e9dead68c3
+url: http://rpubs.com/alinsim/1240636
+version: 1
