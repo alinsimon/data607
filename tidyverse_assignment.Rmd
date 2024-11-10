@@ -1,0 +1,181 @@
+---
+title: "purrr Package - TidyVerse"
+author: "Alinzon Simon"
+date: "2024-11-09"
+output: 
+  html_document:
+    code_folding: show
+    theme:
+      preset: "united"
+      base_font:
+        google: Merriweather
+      heading_font:
+        google: Proza Libre
+    css: css/styles.css  
+---
+
+## Introduction
+
+This powerful package is part of the Tidyverse and is designed for working with functional programming concepts in R; especially for lists, vectors, and data frames. `purrr` simplifies complex data processing workflows.
+
+### Installation
+In order to work with `purr` you need to install and load **tidyverse**.
+
+```{r main_package, message=FALSE, warning=FALSE}
+
+#install.packages("tidyverse")
+
+library(tidyverse)
+
+```
+
+
+And alternative could be to install and load **purrr** package.
+```{r main_package2, message=FALSE, warning=FALSE}
+
+#install.packages("purrr")
+
+library(purrr)
+
+```
+
+
+
+### Functions
+
+- **Map Functions**
+  
+  This family of functions applies a function to each element of a list or vector, returning the results in various formats.
+  
+  
+  - **map()**: This function returns a list of results from applying the logic to each element.
+```{r map, message=FALSE, warning=FALSE}
+
+numbers <- list(4, 5, 6)
+numbers_after_map <- map(numbers, ~ .x * 3) 
+#structure#
+str(numbers_after_map)
+```
+  
+```{r map_returns, message=FALSE, warning=FALSE}
+numbers_after_map
+```
+
+
+
+  - **map_lgl()** : this function is applied to each element and it returns a logical vector
+```{r map_lgl, message=FALSE, warning=FALSE}
+
+numbers <- list(4, 5, 6)
+numbers_after_map_lgl <- map_lgl(numbers, ~ .x > 3) 
+#structure#
+str(numbers_after_map_lgl)
+
+
+```
+
+```{r map_lgl_returns, message=FALSE, warning=FALSE}
+numbers_after_map_lgl
+```
+  
+  
+  
+  - **map_int()** : this function is applied to each element and it returns a integer vector
+  
+    `floor`: it rounds the number to an integer
+```{r map_int, message=FALSE, warning=FALSE}
+
+numbers <- list(4.2, 5.8, 6)
+numbers_after_map_int <- map_int(numbers,floor) 
+#structure#
+str(numbers_after_map_int)
+
+
+```
+
+```{r map_int_returns, message=FALSE, warning=FALSE}
+numbers_after_map_int
+```
+  
+  
+  
+  - **map_dbl()** : this function is applied to each element and it returns a double vector
+```{r map_dbl, message=FALSE, warning=FALSE}
+
+numbers <- list(4.2, 5.8, 6)
+numbers_after_map_dbl <- map_dbl(numbers,~ .x *3) 
+#structure#
+str(numbers_after_map_dbl)
+
+
+```
+
+```{r map_dbl_returns, message=FALSE, warning=FALSE}
+numbers_after_map_dbl
+```
+
+
+
+  - **map_chr()** : this function is applied to each element and it returns a character vector
+```{r map_chr, message=FALSE, warning=FALSE}
+
+numbers <- list('I', 'II','III')
+numbers_after_map_chr <- map_chr(numbers, ~ paste("Number:", .x))
+#structure#
+str(numbers_after_map_chr)
+
+
+```
+
+```{r map_chr_returns, message=FALSE, warning=FALSE}
+numbers_after_map_chr
+```
+
+
+
+
+
+- **Parallel Mapping with Multiple Inputs**
+
+  - **map2()** : this function  is used when you have two lists or vectors and you want to apply a function to each pair of elements from both.
+```{r map2, message=FALSE, warning=FALSE}
+
+Rn <- c("I", "II", "III")
+n <- c(1, 2, 3)
+
+roman_numerals <- map2(n, Rn, ~ paste(.x, "is", .y, " in Roman Numerals."))
+
+str(roman_numerals)
+
+```
+```{r map2_returns, message=FALSE, warning=FALSE}
+roman_numerals
+
+```
+
+
+  - **pmap()** : this function applies a function to multiple lists or vectors at the same time, typically in a data frame. 
+```{r pmap, message=FALSE, warning=FALSE}
+
+ex_df <- data.frame(
+Rn = c("I", "II", "III"),
+n = c(1, 2, 3)
+)
+
+roman_numerals <- pmap(ex_df, function(Rn, n) {
+  paste(Rn, "is", n , " in Roman Numerals.")
+})
+
+str(roman_numerals)
+
+```
+
+```{r pmap_returns, message=FALSE, warning=FALSE}
+roman_numerals
+
+```
+
+### Conclusion
+
+The `purrr` package, part of the Tidyverse, brings functional programming capabilities to R, making data manipulation with lists, vectors, and data frames more efficient and flexible.
+

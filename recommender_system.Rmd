@@ -1,0 +1,93 @@
+---
+title: "Discussion 11: Google Ads"
+author: "Alinzon Simon"
+date: "2024-11-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Google Ads incorporates a recommendation system. While not a traditional recommendation system like those used in e-commerce or streaming services, Google Ads uses advanced algorithms and machine learning techniques to recommend advertising strategies, keywords, and bidding options to advertisers. Each recommendation provides customized suggestions to help improve your campaign's performance.
+
+This dynamic recommendation system tailors advertising strategies for businesses by leveraging machine learning, user behavior data, and automated bidding. It plays a critical role in driving both seller and customer engagement by suggesting keywords, ad targeting, and bidding strategies.
+
+## Scenario Design
+
+**Who are the target Users?**
+
+The target users for Google Ads include a wide range of individuals and organizations looking to promote products, services, or content through paid advertising on Google's platforms.
+
+**What are their goals? **
+
+As an advertiser, the main goals are to:
+
+  - Increase sales: Drive more traffic and conversions.
+  
+  - Promote their brand: Build brand awareness and visibility.
+  
+  - Acquire new customers: Attract new leads and customers.
+  
+  - Manage multiple campaigns: Track and optimize different ad campaigns simultaneously
+
+**How can you help them accomplish those goals?**
+
+Google Ads helps its target users accomplish their goals by offering a range of features, tools, and strategies tailored to different business needs.
+
+
+### For the Organization
+
+This scenario refers to the advertiser who has the objective of improving the ad campaign by optimizing ad targeting, bidding strategies, and keywords.
+  
+  - Ad Targeting Recommendations:
+     Google Ads recommends strategies to help businesses target specific audiences based on factors such as location, browsing behavior, and purchase history.
+  
+  - Smart Bidding:
+    Automated biding strategies recommendations, this allows advertisers to optimize bids and ensure that their ads are shown at the right time to the right audience.
+    Google Ads can suggest bidding strategies like cost-per-click (CPC) or cost-per-acquisition (CPA)
+  
+  - Keyword Recommendations:
+    High-conversion keywords that are relevant to the products or services being advertised.
+
+Organizations can implement A/B testing based on Google Ads’ recommendations to identify which targeting strategies and keyword choices lead to higher engagement and sales. Google Ads also recommends strategies that optimize the organization’s ad budget, making it more efficient by focusing on the most profitable keywords and audience segments.
+
+
+### For Customers
+
+  This scenario will directly impact the end users; the objective is to deliver a personalized and engaging ad experience for customers, improving user satisfaction and increasing conversions.
+  
+  - Personalized Ad Recommendations:
+    Ads are shown based on the user’s browsing history, search queries, and demographic information
+  
+  - Retargeting Ads:
+    For customers who have visited the advertiser’s website but did not make a purchase, Google Ads can recommend retargeting ads 
+  
+  - Dynamic Ads:
+    Dynamic ads that change content based on the customer’s real-time behavior. 
+
+Personalized ad recommendations increase the likelihood of customers finding products that suit their needs. By providing customers with ads that are relevant and tailored to their preferences, Google Ads improves the overall user experience.
+
+
+## Reverse Engineering 
+
+- Google Ads collects data such as search history, browsing behavior, and demographic information to help advertisers target specific user groups.
+
+- Google Ads automatically adjusts bidding strategies to optimize ad performance based on campaign goals, such as maximizing clicks or conversions.
+
+- Personalization and retargeting ads are used to re-engage users who visited a website but did not complete a purchase.
+
+- Google Ads uses data from search queries and competitor ads to recommend high-conversion keywords for advertisers to use in their campaigns.
+
+## Recommendations 
+
+- The data collected can be further expanded from additional resources or apps to refine the customer-targeted ads even more accurately.
+
+## Conclusion
+
+Google Ads provides a powerful and flexible recommendation system that helps advertisers optimize ad campaigns and deliver more personalized experiences for their customers. By focusing on personalized targeting, keyword optimization, and automated bidding strategies, Google Ads enhances the ad campaign’s effectiveness.
+
+On the customer side, Google Ads improves the user experience by showing relevant ads based on browsing history and interests, which increases engagement and satisfaction. By further refining these capabilities, Google Ads can help advertisers achieve even greater success.
+
